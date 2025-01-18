@@ -20,6 +20,10 @@ func New() *Generator {
 func (g *Generator) Generate(program *parser.Program) string {
 	g.writeLine("#include <stdio.h>")
 	g.writeLine("#include <stdlib.h>")
+	g.writeLine("#include <string.h>")
+	g.writeLine("")
+
+	g.writeLine("typedef char* string;")
 	g.writeLine("")
 
 	for _, stmt := range program.Statements {
@@ -37,6 +41,8 @@ func (g *Generator) generateStatement(stmt parser.Statement) {
 		g.generateVarStatement(s)
 	case *parser.ReturnStatement:
 		g.generateReturnStatement(s)
+	case *parser.ForStatement: // Add this case
+		g.generateForStatement(s)
 	}
 }
 
@@ -81,6 +87,21 @@ func (g *Generator) generateExpression(expr parser.Expression) string {
 	default:
 		return ""
 	}
+}
+
+func (g *Generator) generateForStatement(stmt *parser.ForStatement) {
+	g.writeLine("for (int %s = %s; %s < %s; %s++) {",
+		stmt.Iterator,
+		g.generateExpression(stmt.Start),
+		stmt.Iterator,
+		g.generateExpression(stmt.End),
+		stmt.Iterator)
+	g.indent++
+	for _, s := range stmt.Body.Statements {
+		g.generateStatement(s)
+	}
+	g.indent--
+	g.writeLine("}")
 }
 
 func (g *Generator) write(format string, args ...interface{}) {

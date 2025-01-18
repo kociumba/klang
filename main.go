@@ -18,6 +18,11 @@ func main() {
 	// Create lexer
 	l := lexer.New(string(input))
 
+	if err := l.Preprocess(); err != nil {
+		log.Printf("Preprocessor error: %s", err)
+		return
+	}
+
 	// Create parser
 	p := parser.New(l)
 

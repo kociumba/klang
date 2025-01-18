@@ -69,6 +69,17 @@ type ReturnStatement struct {
 func (rs *ReturnStatement) statementNode()       {}
 func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
 
+type ForStatement struct {
+	Token    lexer.Token
+	Iterator string
+	Start    Expression
+	End      Expression
+	Body     *BlockStatement
+}
+
+func (fs *ForStatement) statementNode()       {}
+func (fs *ForStatement) TokenLiteral() string { return fs.Token.Literal }
+
 type Identifier struct {
 	Token lexer.Token
 	Value string
@@ -132,6 +143,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseVarStatement()
 	case lexer.TOKEN_RETURN:
 		return p.parseReturnStatement()
+	case lexer.TOKEN_FOR:
+		return p.parseForStatement()
 	default:
 		return nil
 	}
@@ -272,6 +285,49 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 	p.nextToken()
 
 	stmt.ReturnValue = p.parseExpression()
+
+	return stmt
+}
+
+func (p *Parser) parseForStatement() *ForStatement {
+	stmt := &ForStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.TOKEN_IDENT) {
+		return nil
+	}
+	stmt.Iterator = p.curToken.Literal
+
+	if !p.expectPeek(lexer.TOKEN_IN) {
+		return nil
+	}
+
+	if !p.expectPeek(lexer.TOKEN_RANGE) {
+		return nil
+	}
+
+	if !p.expectPeek(lexer.TOKEN_LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	stmt.Start = p.parseExpression()
+
+	if !p.expectPeek(lexer.TOKEN_COMMA) {
+		return nil
+	}
+
+	p.nextToken()
+	stmt.End = p.parseExpression()
+
+	if !p.expectPeek(lexer.TOKEN_RPAREN) {
+		return nil
+	}
+
+	if !p.expectPeek(lexer.TOKEN_LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
 
 	return stmt
 }
