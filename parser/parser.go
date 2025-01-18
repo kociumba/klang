@@ -1,10 +1,13 @@
 package parser
 
 import (
+	"bufio"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/participle/v2"
 	"github.com/alecthomas/participle/v2/lexer"
+	"github.com/charmbracelet/log"
 )
 
 // AST structures
@@ -14,8 +17,8 @@ type Program struct {
 
 type Declaration struct {
 	Replace *ReplaceStmt `  @@`
-	Define  *FunctionDef `| "define" @@` // Add explicit "define" match
-	Fun     *FunctionDef `| "fun" @@`    // Add explicit "fun" match
+	Define  *FunctionDef `| "define" @@`
+	Fun     *FunctionDef `| "fun" @@`
 }
 
 type ReplaceStmt struct {
@@ -44,17 +47,18 @@ type Statement struct {
 	ForLoop *ForLoop     `| @@`
 	IfStmt  *IfStatement `| @@`
 	Return  *ReturnStmt  `| @@`
+	Block   *Block       `| @@`
 	Expr    *Expression  `| @@`
 }
-
 type VarDecl struct {
-	Name string      `"var" @Ident`
-	Type string      `":" @Ident`
-	Init *Expression `("=" @@)?`
+	Name string      `("var" @Ident | @Ident ":=")` // Added support for :=
+	Type *string     `(":" @Ident)?`                // Made Type optional for := syntax
+	Init *Expression `(("=" | ":=") @@)?`           // Support both = and :=
 }
 
 type ForLoop struct {
-	Iterator string      `("for"|"gabagool"|"ل") @Ident`
+	Keyword  string      `(@Ident | "for")` // Captures "for" or its replacement
+	Iterator string      `@Ident`           // Captures just the iterator variable name
 	In       string      `"in"`
 	Start    *Expression `"range" "(" @@ ","`
 	End      *Expression `@@ ")"`
@@ -67,16 +71,15 @@ type IfStatement struct {
 }
 
 type ReturnStmt struct {
-	Value *Expression `"return" @@`
+	Value *Expression `"return" @@?` // Made Value optional for void returns
 }
 
 type Expression struct {
 	Atom  *Atom       `@@`
-	Op    *string     `@("+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="`
-	Right *Expression `@@)?`
+	Op    *string     `@("+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=")? `
+	Right *Expression `@@?`
 }
 
-// New type to handle atomic expressions
 type Atom struct {
 	Number   *int64        `  @Int`
 	String   *string       `| @String`
@@ -90,8 +93,43 @@ type FunctionCall struct {
 	Arguments []*Expression `"(" (@@ ("," @@)*)? ")"`
 }
 
+type Replacement struct {
+	From string
+	To   string
+}
+
+func CollectReplacements(input *os.File) ([]Replacement, error) {
+	var replacements []Replacement
+	scanner := bufio.NewScanner(input)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "replace") {
+			parts := strings.Fields(line)
+			if len(parts) >= 4 && parts[2] == "->" {
+				from := parts[1]
+				to := strings.Trim(parts[3], "\"")
+				replacements = append(replacements, Replacement{From: from, To: to})
+			}
+		}
+	}
+
+	input.Seek(0, 0)
+	return replacements, scanner.Err()
+}
+
 func Parse(input *os.File) *Program {
-	lex := lexer.MustSimple([]lexer.SimpleRule{
+	replacements, err := CollectReplacements(input)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	replacementPatterns := make([]string, len(replacements))
+	for i, r := range replacements {
+		replacementPatterns[i] = r.From
+	}
+
+	rules := []lexer.SimpleRule{
 		{Name: "Comment", Pattern: `//[^\n]*`},
 		{Name: "Whitespace", Pattern: `\s+`},
 		{Name: "String", Pattern: `"[^"]*"`},
@@ -100,7 +138,9 @@ func Parse(input *os.File) *Program {
 		{Name: "Arrow", Pattern: `->`},
 		{Name: "Operator", Pattern: `\+=|-=|\*=|/=|%=|&=|\|=|\^=|<<=|>>=|&&|\|\||==|!=|<=|>=|[+\-*/%&|^<>]=?`},
 		{Name: "Punct", Pattern: `[(),{}:;]`},
-	})
+	}
+
+	lex := lexer.MustSimple(rules)
 
 	parser := participle.MustBuild[Program](
 		participle.Lexer(lex),
@@ -108,10 +148,11 @@ func Parse(input *os.File) *Program {
 		participle.UseLookahead(2),
 	)
 
-	r, err := parser.Parse("test/grammar.k", input)
+	input.Seek(0, 0)
+	program, err := parser.Parse(input.Name(), input)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	return r
+	return program
 }

@@ -33,8 +33,18 @@ func (cg *CodeGen) Generate(program *parser.Program) string {
 	output.WriteString("#include <stdio.h>\n")
 	output.WriteString("#include <stdlib.h>\n")
 	output.WriteString("#include <stdbool.h>\n\n")
+
 	// Add your string typedef
 	output.WriteString("typedef char* string;\n\n")
+
+	// Add nullable type support
+	output.WriteString("// Nullable type support\n")
+	output.WriteString("#define NULLABLE_TYPE(T) struct { T value; bool initialized; }\n")
+	output.WriteString("#define GET_VALUE(x) (assert((x).initialized), (x).value)\n")
+	output.WriteString("#define SET_VALUE(x, v) ((x).value = (v), (x).initialized = true)\n\n")
+
+	// Add printfln
+	output.WriteString("#define printfln(fmt, ...) printf(fmt \"\\n\", ##__VA_ARGS__)\n\n")
 
 	// Process replacements first
 	for _, decl := range program.Declarations {
