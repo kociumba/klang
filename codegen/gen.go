@@ -27,7 +27,9 @@ func (g *Generator) Generate(program *parser.Program) string {
 	g.writeLine("")
 
 	for _, stmt := range program.Statements {
-		g.generateStatement(stmt)
+		if fn, ok := stmt.(*parser.FunctionLiteral); ok {
+			g.generateFunction(fn)
+		}
 	}
 
 	return g.output.String()
@@ -41,9 +43,37 @@ func (g *Generator) generateStatement(stmt parser.Statement) {
 		g.generateVarStatement(s)
 	case *parser.ReturnStatement:
 		g.generateReturnStatement(s)
-	case *parser.ForStatement: // Add this case
+	case *parser.ForStatement:
 		g.generateForStatement(s)
+	case *parser.ExpressionStatement:
+		g.generateExpressionStatement(s)
 	}
+}
+
+func (g *Generator) generateExpressionStatement(stmt *parser.ExpressionStatement) {
+	g.writeLine("%s;", g.generateExpression(stmt.Expression))
+}
+
+func (g *Generator) generateExpression(expr parser.Expression) string {
+	switch e := expr.(type) {
+	case *parser.Identifier:
+		return e.Value
+	case *parser.IntegerLiteral:
+		return strconv.FormatInt(e.Value, 10)
+	case *parser.CallExpression:
+		return g.generateCallExpression(e)
+	default:
+		return ""
+	}
+}
+
+func (g *Generator) generateCallExpression(expr *parser.CallExpression) string {
+	args := make([]string, 0, len(expr.Arguments))
+	for _, arg := range expr.Arguments {
+		args = append(args, g.generateExpression(arg))
+	}
+	fn := g.generateExpression(expr.Function)
+	return fmt.Sprintf("%s(%s)", fn, strings.Join(args, ", "))
 }
 
 func (g *Generator) generateFunction(fun *parser.FunctionLiteral) {
@@ -78,17 +108,6 @@ func (g *Generator) generateReturnStatement(stmt *parser.ReturnStatement) {
 	g.writeLine("return %s;", g.generateExpression(stmt.ReturnValue))
 }
 
-func (g *Generator) generateExpression(expr parser.Expression) string {
-	switch e := expr.(type) {
-	case *parser.Identifier:
-		return e.Value
-	case *parser.IntegerLiteral:
-		return strconv.FormatInt(e.Value, 10)
-	default:
-		return ""
-	}
-}
-
 func (g *Generator) generateForStatement(stmt *parser.ForStatement) {
 	g.writeLine("for (int %s = %s; %s < %s; %s++) {",
 		stmt.Iterator,
@@ -96,6 +115,7 @@ func (g *Generator) generateForStatement(stmt *parser.ForStatement) {
 		stmt.Iterator,
 		g.generateExpression(stmt.End),
 		stmt.Iterator)
+
 	g.indent++
 	for _, s := range stmt.Body.Statements {
 		g.generateStatement(s)

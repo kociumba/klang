@@ -96,6 +96,23 @@ type IntegerLiteral struct {
 func (il *IntegerLiteral) expressionNode()      {}
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
 
+type ExpressionStatement struct {
+	Token      lexer.Token
+	Expression Expression
+}
+
+func (es *ExpressionStatement) statementNode()       {}
+func (es *ExpressionStatement) TokenLiteral() string { return es.Token.Literal }
+
+type CallExpression struct {
+	Token     lexer.Token
+	Function  Expression
+	Arguments []Expression
+}
+
+func (ce *CallExpression) expressionNode()      {}
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+
 // Parser
 type Parser struct {
 	l         *lexer.Lexer
@@ -146,8 +163,44 @@ func (p *Parser) parseStatement() Statement {
 	case lexer.TOKEN_FOR:
 		return p.parseForStatement()
 	default:
+		return p.parseExpressionStatement()
+	}
+}
+
+func (p *Parser) parseCallExpression(function Expression) *CallExpression {
+	exp := &CallExpression{Token: p.curToken, Function: function}
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+func (p *Parser) parseCallArguments() []Expression {
+	args := []Expression{}
+
+	if p.peekToken.Type == lexer.TOKEN_RPAREN {
+		p.nextToken()
+		return args
+	}
+
+	p.nextToken()
+	args = append(args, p.parseExpression())
+
+	for p.peekToken.Type == lexer.TOKEN_COMMA {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression())
+	}
+
+	if !p.expectPeek(lexer.TOKEN_RPAREN) {
 		return nil
 	}
+
+	return args
+}
+
+func (p *Parser) parseExpressionStatement() *ExpressionStatement {
+	stmt := &ExpressionStatement{Token: p.curToken}
+	stmt.Expression = p.parseExpression()
+	return stmt
 }
 
 func (p *Parser) parseFunctionStatement() *FunctionLiteral {
@@ -292,6 +345,7 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 func (p *Parser) parseForStatement() *ForStatement {
 	stmt := &ForStatement{Token: p.curToken}
 
+	// Parse: for <iterator> in range(<start>, <end>)
 	if !p.expectPeek(lexer.TOKEN_IDENT) {
 		return nil
 	}
