@@ -113,12 +113,36 @@ type CallExpression struct {
 func (ce *CallExpression) expressionNode()      {}
 func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
 
+type InfixExpression struct {
+	Token    lexer.Token
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+func (ie *InfixExpression) expressionNode()      {}
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+
+type IfStatement struct {
+	Token     lexer.Token
+	Condition Expression
+	Body      *BlockStatement
+}
+
+func (is *IfStatement) statementNode()       {}
+func (is *IfStatement) TokenLiteral() string { return is.Token.Literal }
+
 // Parser
 type Parser struct {
 	l         *lexer.Lexer
 	curToken  lexer.Token
 	peekToken lexer.Token
 	errors    []string
+	context   parsingContext
+}
+
+type parsingContext struct {
+	inFunctionDecl bool
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -160,11 +184,30 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseVarStatement()
 	case lexer.TOKEN_RETURN:
 		return p.parseReturnStatement()
-	case lexer.TOKEN_FOR:
-		return p.parseForStatement()
+	case lexer.TOKEN_FOR, lexer.TOKEN_IDENT:
+		// Check the original text to see if this was a 'for' keyword
+		if p.curToken.Type == lexer.TOKEN_FOR || p.curToken.OriginalText == "for" {
+			return p.parseForStatement()
+		}
+		return p.parseExpressionStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseIfStatement() *IfStatement {
+	stmt := &IfStatement{Token: p.curToken}
+
+	p.nextToken()
+	stmt.Condition = p.parseExpression()
+
+	if !p.expectPeek(lexer.TOKEN_LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
+
+	return stmt
 }
 
 func (p *Parser) parseCallExpression(function Expression) *CallExpression {
@@ -204,6 +247,11 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 }
 
 func (p *Parser) parseFunctionStatement() *FunctionLiteral {
+	// Set the context
+	oldContext := p.context
+	p.context.inFunctionDecl = true
+	defer func() { p.context = oldContext }()
+
 	fun := &FunctionLiteral{Token: p.curToken}
 
 	if !p.expectPeek(lexer.TOKEN_IDENT) {
@@ -231,13 +279,13 @@ func (p *Parser) parseFunctionStatement() *FunctionLiteral {
 	}
 
 	fun.Body = p.parseBlockStatement()
-
 	return fun
 }
 
 func (p *Parser) parseFunctionParameters() []*Parameter {
 	params := []*Parameter{}
 
+	// Handle empty parameter list
 	if p.peekToken.Type == lexer.TOKEN_RPAREN {
 		p.nextToken()
 		return params
@@ -245,14 +293,17 @@ func (p *Parser) parseFunctionParameters() []*Parameter {
 
 	p.nextToken()
 
+	// Parse first parameter
 	param := &Parameter{
 		Name: p.curToken.Literal,
 	}
 
+	// Must have colon after parameter name
 	if !p.expectPeek(lexer.TOKEN_COLON) {
 		return nil
 	}
 
+	// Must have type after colon
 	if !p.expectPeek(lexer.TOKEN_IDENT) {
 		return nil
 	}
@@ -260,9 +311,10 @@ func (p *Parser) parseFunctionParameters() []*Parameter {
 
 	params = append(params, param)
 
+	// Parse additional parameters
 	for p.peekToken.Type == lexer.TOKEN_COMMA {
-		p.nextToken()
-		p.nextToken()
+		p.nextToken() // consume comma
+		p.nextToken() // move to parameter name
 
 		param := &Parameter{
 			Name: p.curToken.Literal,
@@ -280,6 +332,7 @@ func (p *Parser) parseFunctionParameters() []*Parameter {
 		params = append(params, param)
 	}
 
+	// Must end with closing parenthesis
 	if !p.expectPeek(lexer.TOKEN_RPAREN) {
 		return nil
 	}
@@ -345,7 +398,6 @@ func (p *Parser) parseReturnStatement() *ReturnStatement {
 func (p *Parser) parseForStatement() *ForStatement {
 	stmt := &ForStatement{Token: p.curToken}
 
-	// Parse: for <iterator> in range(<start>, <end>)
 	if !p.expectPeek(lexer.TOKEN_IDENT) {
 		return nil
 	}
@@ -387,6 +439,18 @@ func (p *Parser) parseForStatement() *ForStatement {
 }
 
 func (p *Parser) parseExpression() Expression {
+	leftExp := p.parsePrimaryExpression()
+
+	// Only treat as call expression if we're not in a function declaration
+	if !p.context.inFunctionDecl && p.peekToken.Type == lexer.TOKEN_LPAREN {
+		p.nextToken()
+		return p.parseCallExpression(leftExp)
+	}
+
+	return leftExp
+}
+
+func (p *Parser) parsePrimaryExpression() Expression {
 	switch p.curToken.Type {
 	case lexer.TOKEN_IDENT:
 		return &Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -403,6 +467,6 @@ func (p *Parser) expectPeek(t lexer.TokenType) bool {
 		p.nextToken()
 		return true
 	}
-	p.errors = append(p.errors, fmt.Sprintf("expected next token to be %v, got %v instead", t, p.peekToken.Type))
+	p.errors = append(p.errors, fmt.Sprintf("expected next token to be %v, got %v instead, %+v", t, p.peekToken.Type, p))
 	return false
 }

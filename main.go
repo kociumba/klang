@@ -19,7 +19,7 @@ func main() {
 	l := lexer.New(string(input))
 
 	if err := l.Preprocess(); err != nil {
-		log.Printf("Preprocessor error: %s", err)
+		log.Errorf("Preprocessor error: %s", err)
 		return
 	}
 
@@ -30,7 +30,7 @@ func main() {
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		for _, err := range p.Errors() {
-			log.Printf("Parser error: %s", err)
+			log.Errorf("Parser error: %s", err)
 		}
 		return
 	}

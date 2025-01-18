@@ -45,6 +45,8 @@ func (g *Generator) generateStatement(stmt parser.Statement) {
 		g.generateReturnStatement(s)
 	case *parser.ForStatement:
 		g.generateForStatement(s)
+	case *parser.IfStatement:
+		g.generateIfStatement(s)
 	case *parser.ExpressionStatement:
 		g.generateExpressionStatement(s)
 	}
@@ -62,9 +64,27 @@ func (g *Generator) generateExpression(expr parser.Expression) string {
 		return strconv.FormatInt(e.Value, 10)
 	case *parser.CallExpression:
 		return g.generateCallExpression(e)
+	case *parser.InfixExpression:
+		return g.generateInfixExpression(e)
 	default:
 		return ""
 	}
+}
+
+func (g *Generator) generateIfStatement(stmt *parser.IfStatement) {
+	g.writeLine("if (%s) {", g.generateExpression(stmt.Condition))
+	g.indent++
+	for _, s := range stmt.Body.Statements {
+		g.generateStatement(s)
+	}
+	g.indent--
+	g.writeLine("}")
+}
+
+func (g *Generator) generateInfixExpression(expr *parser.InfixExpression) string {
+	left := g.generateExpression(expr.Left)
+	right := g.generateExpression(expr.Right)
+	return fmt.Sprintf("%s %s %s", left, expr.Operator, right)
 }
 
 func (g *Generator) generateCallExpression(expr *parser.CallExpression) string {
