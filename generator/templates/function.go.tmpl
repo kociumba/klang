@@ -1,0 +1,7 @@
+{{- define "function"}}
+{{if .ReturnType}}{{.ReturnType}} {{else}}void {{end}}{{.Name}}(
+{{range $index, $param := .Params}}
+{{if $index}}, {{end}}{{.Type}} {{.Name}}
+{{- end}})
+    {{template "block" .Body}}
+{{- end}}

@@ -1,0 +1,3 @@
+{{- define "var_decl" -}}
+{{.Type}} {{.Name}} = {{template "expression" .Init}}
+{{- end}}

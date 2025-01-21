@@ -1,0 +1,7 @@
+{{- define "block"}}
+{
+    {{range .Statements}}
+        {{template "statement" .}}
+    {{end}}
+}
+{{- end}}

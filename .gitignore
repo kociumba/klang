@@ -1,4 +1,5 @@
 output.c
 grammar.k
+*.exe
 
 /test/*

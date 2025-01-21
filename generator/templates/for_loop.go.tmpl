@@ -1,0 +1,4 @@
+{{- define "for_loop" -}}
+for (int {{.Iterator}} = {{template "expression" .Start}}; {{.Iterator}} < {{template "expression" .End}}; {{.Iterator}}++)
+    {{template "block" .Body}}
+{{- end}}

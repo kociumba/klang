@@ -3,9 +3,9 @@
 version: '3'
 
 tasks:
-    build:
-        cmds:
-        - go build -C . -o ./bin
-    build-r:
-        cmds:
-        - go build -C . -o ./bin -ldflags "-s -w"
+  build:
+    cmds:
+    - go build -C . -o ./build
+  build-r:
+    cmds:
+    - go build -C . -o ./build -ldflags "-s -w"

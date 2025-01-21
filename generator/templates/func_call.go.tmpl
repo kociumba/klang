@@ -1,0 +1,3 @@
+{{- define "func_call" -}}
+{{.Name}}({{range $index, $arg := .Args}}{{if $index}}, {{end}}{{template "expression" $arg}}{{end}})
+{{- end}}

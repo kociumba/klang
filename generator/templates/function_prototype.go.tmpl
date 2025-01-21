@@ -1,0 +1,3 @@
+{{- define "function_prototype"}}
+{{if .ReturnType}}{{.ReturnType}}{{else}}void{{end}} {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{.Type}} {{.Name}}{{end}});
+{{- end}}

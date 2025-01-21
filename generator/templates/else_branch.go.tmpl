@@ -1,0 +1,7 @@
+{{- define "else_branch"}}
+{{- if .ElseIf}} ({{template "expression" .ElseIf.Condition}})
+    {{template "block" .ElseIf.Body}}
+{{- else}}
+    {{template "block" .Else}}
+{{- end}}
+{{- end}}

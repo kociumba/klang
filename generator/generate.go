@@ -1,158 +1,77 @@
 package generator
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/kociumba/klang/parser"
 )
 
-// CodeGen represents the C code generator
 type CodeGen struct {
-	// Track declared functions for type checking return values
+	// Return type checking ?
 	functions map[string]string // map[funcName]returnType
-	// Track replacements for keyword substitution
-	replacements map[string]string
-	// You might want to track current function for return type checking
+	// Return type checking ?
 	currentFunction string
 }
 
 func NewCodeGen() *CodeGen {
 	return &CodeGen{
 		functions:       make(map[string]string),
-		replacements:    make(map[string]string),
 		currentFunction: "",
 	}
 }
 
-func (cg *CodeGen) Generate(program *parser.Program) string {
+// Simple plan here:
+// - generate macros for defines
+// - generate function prototypes
+// - generate function implementations
+func (cg *CodeGen) Generate(root *parser.Root) string {
 	var output strings.Builder
-
-	// Add standard C headers
-	output.WriteString("#include <stdio.h>\n")
-	output.WriteString("#include <stdlib.h>\n")
-	output.WriteString("#include <stdbool.h>\n")
-	output.WriteString("#include <assert.h>\n\n")
-
-	// Add your string typedef
-	output.WriteString("typedef char* string;\n\n")
-
-	// Nullable type support
-	output.WriteString("// Nullable type support\n")
-	output.WriteString("#define DEFINE_NULLABLE_TYPE(T, Name) \\\n")
-	output.WriteString("    typedef struct { \\\n")
-	output.WriteString("        bool is_present; \\\n")
-	output.WriteString("        T value; \\\n")
-	output.WriteString("    } Nullable##Name;\\\n")
-	output.WriteString("\\\n")
-	output.WriteString("    Nullable##Name make_nullable_##Name(T value) { \\\n")
-	output.WriteString("        return (Nullable##Name){ .is_present = true, .value = value }; \\\n")
-	output.WriteString("    }\\\n")
-	output.WriteString("\\\n")
-	output.WriteString("    Nullable##Name make_empty_##Name() { \\\n")
-	output.WriteString("        return (Nullable##Name){ .is_present = false }; \\\n")
-	output.WriteString("    }")
-
-	output.WriteString("\n\n")
-	output.WriteString("DEFINE_NULLABLE_TYPE(int, Int)\n")
-	output.WriteString("DEFINE_NULLABLE_TYPE(double, Double)\n")
-
-	// Add printfln
-	output.WriteString("#define printfln(fmt, ...) printf(fmt \"\\n\", ##__VA_ARGS__)\n\n")
-
-	// Process replacements first
-	for _, decl := range program.Declarations {
-		if decl.Replace != nil {
-			cg.replacements[decl.Replace.From] = decl.Replace.To
-		}
+	tm, err := NewTemplateManager()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// Generate function prototypes first (for forward declarations)
-	for _, decl := range program.Declarations {
-		if decl.Define != nil || decl.Fun != nil {
-			var fn *parser.FunctionDef
-			if decl.Define != nil {
-				fn = decl.Define
-				// Handle define differently - maybe as macro?
-				output.WriteString(cg.generateMacro(fn))
-			} else {
-				fn = decl.Fun
-				// Add to function map for return type checking
-				if fn.ReturnType != nil {
-					cg.functions[fn.Name] = *fn.ReturnType
-				}
-				output.WriteString(cg.generateFunctionPrototype(fn))
+	// headers
+	if err := tm.GenerateToBuffer("headers.go.tmpl", nil, "headers"); err != nil {
+		log.Warn(err)
+	}
+
+	// typedefs
+	//
+	// TODO: move this to nodes when i add parsing for it
+	if err := tm.GenerateToBuffer("typedefs.go.tmpl", nil, "typedefs"); err != nil {
+		log.Warn(err)
+	}
+
+	// parse anything extracted from the ast
+	for _, node := range root.Nodes {
+		switch node.(type) {
+		case parser.VarDecl:
+			v := node.(parser.VarDecl)
+			if err := tm.GenerateToBuffer("var_decl", v, "variables"); err != nil {
+				log.Warn(err)
+			}
+		case parser.Definedecl:
+			def := node.(parser.Definedecl)
+			if err := tm.GenerateToBuffer("macro", def, "macros"); err != nil {
+				log.Warn(err)
+			}
+		case parser.FunctionDef:
+			fn := node.(parser.FunctionDef)
+			// pp.Println(fn.Body.Statements)
+			if err := tm.GenerateToBuffer("function_prototype", fn, "function_prototypes"); err != nil {
+				log.Warn(err)
+			}
+			if err := tm.GenerateToBuffer("function", fn, "functions"); err != nil {
+				log.Warn(err)
 			}
 		}
 	}
 
-	// Generate function implementations
-	for _, decl := range program.Declarations {
-		if decl.Fun != nil {
-			cg.currentFunction = decl.Fun.Name
-			output.WriteString(cg.generateFunction(decl.Fun))
-			cg.currentFunction = ""
-		}
+	if err := tm.WriteBuffersToBuilder(&output); err != nil {
+		log.Fatal(err)
 	}
 
 	return output.String()
-}
-
-func (cg *CodeGen) generateBlock(block *parser.Block) string {
-	if block == nil {
-		return ""
-	}
-
-	var output strings.Builder
-	for _, stmt := range block.Statements {
-		output.WriteString(cg.generateStatement(&stmt))
-	}
-	return output.String()
-}
-
-func (cg *CodeGen) generateStatement(stmt *parser.Statement) string {
-	if stmt == nil {
-		return ""
-	}
-
-	if stmt.Return != nil {
-		return fmt.Sprintf("    return GET_VALUE(%s);\n",
-			cg.generateExpression(stmt.Return.Value))
-	}
-
-	if stmt.VarDecl != nil {
-		return cg.generateVarDecl(stmt.VarDecl)
-	}
-
-	if stmt.ForLoop != nil {
-		return cg.generateForLoop(stmt.ForLoop)
-	}
-
-	if stmt.IfStmt != nil {
-		return cg.generateIfStatement(stmt.IfStmt)
-	}
-
-	if stmt.Expr != nil {
-		// This will handle function calls through the Expression struct
-		return fmt.Sprintf("    %s;\n", cg.generateExpression(stmt.Expr))
-	}
-
-	return ""
-}
-
-func (cg *CodeGen) generateForLoop(loop *parser.ForLoop) string {
-	// Handle the range function specially
-	return fmt.Sprintf("    for(int %s = %s; %s < %s; %s++) {\n%s    }\n",
-		loop.Iterator,
-		cg.generateExpression(loop.Start),
-		loop.Iterator,
-		cg.generateExpression(loop.End),
-		loop.Iterator,
-		cg.generateBlock(loop.Body))
-}
-
-func (cg *CodeGen) generateIfStatement(ifStmt *parser.IfStatement) string {
-	return fmt.Sprintf("    if(%s) {\n%s    }\n",
-		cg.generateExpression(ifStmt.Condition),
-		cg.generateBlock(ifStmt.Body))
 }

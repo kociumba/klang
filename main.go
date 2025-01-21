@@ -1,55 +1,87 @@
 package main
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/k0kubun/pp/v3"
+	"github.com/kociumba/klang/generator"
 	"github.com/kociumba/klang/parser"
 	"github.com/leaanthony/clir"
 	"github.com/leaanthony/spinner"
 )
 
+type Actions struct {
+	Build bool
+	Run   bool
+}
+
 var (
 	mainSRC string
+	action  Actions
 )
 
 func main() {
 	cli := clir.NewCli("klang", "compiler for the klang language", "v0.0.1")
-	cli.DefaultCommand() // use this to run the build command by default, or run
 
 	printAST := false
 	cli.BoolFlag("ast", "print the abstract syntax tree", &printAST)
 	printCCOut := false
-	cli.BoolFlag("ccout", "print the output if the underlaying zig cc compiler", &printCCOut)
+	cli.BoolFlag("ccout", "print the output of the underlaying zig cc compiler", &printCCOut)
+	src := "no path provided"
+	cli.StringFlag("src", "main source file to compile", &src)
+
+	build := cli.NewSubCommandInheritFlags("build", "build a klang source file to an executable")
+	build.Action(func() error {
+		action.Build = true
+		return nil
+	})
+	run := cli.NewSubCommandInheritFlags("run", "run a klang source file")
+	run.Action(func() error {
+		action.Run = true
+		return nil
+	})
 
 	if err := cli.Run(); err != nil {
 		log.Fatal(err)
 	}
 
-	if !validatePath(strings.Join(cli.OtherArgs(), "")) {
-		os.Exit(1)
+	spin := spinner.New("Finding source files")
+	spin.Start()
+
+	if src == "no path provided" {
+		spin.Error("No source file provided\n\nHINT: Use the -src flag")
+		os.Exit(0)
 	}
 
-	fmt.Printf("Main klang source file found at: %s", mainSRC)
-	spin := spinner.New("Compiling")
-	spin.Start()
+	validatePath(src)
+
+	// fmt.Printf("Main klang source file found at: %s", mainSRC)
+
+	spin.UpdateMessage("Reading source files")
+
+	mainSRC = filepath.Clean(mainSRC)
 
 	input, err := os.Open(mainSRC)
 	if err != nil {
-		panic(err)
+		spin.Error("Failed to open source file: " + err.Error())
+		os.Exit(0)
 	}
+
+	spin.UpdateMessage("Applying replacements")
 
 	replacedSRC, err := parser.GetReplacements(input)
 	if err != nil {
 		spin.Error("Failed to parse replacements: " + err.Error())
-		// log.Fatal(err)
+		os.Exit(0)
 	}
+
+	spin.UpdateMessage("Building AST")
 
 	program := parser.Parse(replacedSRC, input.Name())
 
@@ -57,15 +89,26 @@ func main() {
 		pp.Print(program)
 	}
 
-	// log.Infof("%+v", program)
+	spin.UpdateMessage("Generating C intermediary")
 
-	// cgen := generator.NewCodeGen().Generate(program)
+	cgen := generator.NewCodeGen().Generate(program)
 
-	// log.Infof("%s", cgen)
+	intermediary := strings.TrimSuffix(input.Name(), ".k") + ".c"
 
-	// os.WriteFile("test/output.c", []byte(cgen), 0644)
+	os.WriteFile(intermediary, []byte(cgen), 0644)
 
-	cmd := exec.Command("zig", "cc", "test/output.c", "-o", "test/build/test.exe", "-O3")
+	spin.UpdateMessage("Compiling C intermediary")
+
+	var suffix string
+	switch runtime.GOOS {
+	case "windows":
+		suffix = ".exe"
+	default:
+		suffix = ""
+	}
+
+	binary := strings.TrimSuffix(input.Name(), ".k") + suffix
+	cmd := exec.Command("zig", "cc", intermediary, "-o", binary, "-O3")
 	if printCCOut {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -77,6 +120,10 @@ func main() {
 	}
 
 	spin.Success("Compilation successful!")
+
+	if action.Run {
+		exec.Command(binary).Start()
+	}
 }
 
 func validatePath(path string) bool {
