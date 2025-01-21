@@ -57,9 +57,23 @@ func (cg *CodeGen) generateMacro(fn *parser.FunctionDef) string {
 	output.WriteString(strings.Join(args, ", "))
 	output.WriteString(") {\n")
 
-	// Generate function body
-	if fn.Body != nil {
-		output.WriteString(cg.generateBlock(fn.Body))
+	// For functions that return bool (like isEven), handle the body differently
+	if fn.ReturnType != nil && *fn.ReturnType == "bool" {
+		if fn.Body != nil {
+			// For boolean operations, we want to work with raw values
+			output.WriteString("    return ")
+			// Remove the outer GET_VALUE and NULLABLE_OP_RAW wrappers from the generated expression
+			expr := cg.generateBlock(fn.Body)
+			// Simple string manipulation to remove the wrapper functions
+			expr = strings.TrimPrefix(expr, "    return GET_VALUE(NULLABLE_OP_RAW(")
+			expr = strings.TrimSuffix(expr, "));\n")
+			output.WriteString(expr + ";\n")
+		}
+	} else {
+		// For non-bool returns, use the normal block generation
+		if fn.Body != nil {
+			output.WriteString(cg.generateBlock(fn.Body))
+		}
 	}
 	output.WriteString("}\n\n")
 
