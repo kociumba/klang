@@ -1,3 +1,6 @@
 {{- define "assignment" -}}
-{{.Name}} {{.Op}} {{template "expression" .Value}};
-{{- end}}
+  {{- if .Target.Ident}}{{.Target.Ident}}
+  {{- else if .Target.IndexAccess}}{{template "index_access" .Target.IndexAccess}}
+  {{- else if .Target.Dereference}}{{template "dereference" .Target.Dereference}}
+  {{- end}} {{.Op}} {{template "expression" .Value}}
+{{- end -}}

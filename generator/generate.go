@@ -47,6 +47,12 @@ func (cg *CodeGen) Generate(root *parser.Root) string {
 	// parse anything extracted from the ast
 	for _, node := range root.Nodes {
 		switch node.(type) {
+		case parser.StructDecl:
+			s := node.(parser.StructDecl)
+			tm.GenerateToBuffer("struct_decl", s, "typedefs")
+		case parser.TypeDecl:
+			t := node.(parser.TypeDecl)
+			tm.GenerateToBuffer("type_decl", t, "typedefs")
 		case parser.VarDecl:
 			v := node.(parser.VarDecl)
 			if err := tm.GenerateToBuffer("var_decl", v, "variables"); err != nil {

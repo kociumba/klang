@@ -1,3 +1,12 @@
 {{- define "var_decl" -}}
-{{.Type}} {{.Name}} = {{template "expression" .Init}};
-{{- end}}
+{{- $base := .Type.Base -}}
+{{- $name := .Name -}}
+{{- range $mod := reverseMods .Type.Modifiers -}}
+    {{- if $mod.Pointer -}}
+        {{- $name = printf "*%s" $name -}}
+    {{- else if $mod.Array -}}
+        {{- $name = printf "%s[%s]" $name (renderSize $mod.Array.Size) -}}
+    {{- end -}}
+{{- end -}}
+{{ $base }} {{ $name }};
+{{- end -}}

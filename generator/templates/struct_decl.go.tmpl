@@ -1,0 +1,7 @@
+{{- define "struct_decl" -}}
+typedef struct {
+    {{- range .Fields }}
+    {{ template "type" .Type }} {{ .Name }};
+    {{- end }}
+} {{ .Name }};
+{{- end -}}

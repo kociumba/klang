@@ -1,3 +1,7 @@
 {{- define "function_prototype" -}}
-{{if .ReturnType}}{{.ReturnType}}{{else}}void{{end}} {{.Name}}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{$param.Type}} {{$param.Name}}{{end}});
-{{- end}}
+  {{ template "type" .ReturnType }} {{ .Name }}(
+    {{- range $index, $param := .Params -}}
+      {{if $index}}, {{end}}{{ template "type" $param.Type }} {{ $param.Name }}
+    {{- end -}}
+  );
+{{- end -}}

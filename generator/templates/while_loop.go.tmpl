@@ -1,0 +1,5 @@
+{{- define "while_loop" -}}
+while ({{template "expression" .Condition}}) {
+    {{template "block" .Body}}
+}
+{{- end -}}

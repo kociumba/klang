@@ -33,7 +33,7 @@ func Parse(input string, fileName string) *Root {
 		{Name: "BitwiseOp", Pattern: `[&|^]`},
 		{Name: "MathOp", Pattern: `[+\-*/%]`},
 		{Name: "UnaryOp", Pattern: `[!~]`},
-		{Name: "Punct", Pattern: `[(),{}.?:]`},
+		{Name: "Punct", Pattern: `[][(),{}.?:]`},
 	}
 
 	lex := lexer.MustSimple(rules)

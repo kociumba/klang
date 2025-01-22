@@ -1,0 +1,3 @@
+{{- define "array_literal" -}}
+  { {{- range $index, $elem := .Elements -}}{{if $index}}, {{end}}{{template "expression" $elem}}{{end}} }
+{{- end -}}

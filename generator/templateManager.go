@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"github.com/kociumba/klang/parser"
 )
 
 //go:embed templates/*.tmpl
@@ -17,12 +19,40 @@ type TemplateManager struct {
 }
 
 func NewTemplateManager() (*TemplateManager, error) {
-	// pp.Print(embeddedTemplates)
-	tmpl, err := template.ParseFS(embeddedTemplates, "templates/*.go.tmpl")
-	// pp.Print(tmpl.DefinedTemplates())
-	if err != nil {
-		return nil, err
+	tmpl := template.New("")
+
+	funcs := template.FuncMap{
+		"reverseMods": func(mods []parser.Modifier) []parser.Modifier {
+			reversed := make([]parser.Modifier, len(mods))
+			copy(reversed, mods)
+			for i := 0; i < len(reversed)/2; i++ {
+				j := len(reversed) - i - 1
+				reversed[i], reversed[j] = reversed[j], reversed[i]
+			}
+			return reversed
+		},
+		"renderSize": func(size *parser.Expression) string {
+			if size == nil {
+				return ""
+			}
+			buf := new(bytes.Buffer)
+			if err := tmpl.ExecuteTemplate(buf, "expression", size); err != nil {
+				return "<ERROR>"
+			}
+			return buf.String()
+		},
+		"needsParens": func(mods []parser.Modifier, idx int) bool {
+			return idx > 0 && mods[idx-1].Array != nil
+		},
+		"repeat": func(count int, str string) string {
+			return strings.Repeat(str, count)
+		},
 	}
+
+	// pp.Print(embeddedTemplates)
+	tmpl.Funcs(funcs)
+	tmpl = template.Must(tmpl.ParseFS(embeddedTemplates, "templates/*.go.tmpl"))
+	// pp.Print(tmpl.DefinedTemplates())
 
 	return &TemplateManager{
 		templates: tmpl,

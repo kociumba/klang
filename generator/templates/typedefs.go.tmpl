@@ -1,1 +1,5 @@
 typedef char* string;
+
+{{- define "type_decl" -}}
+typedef {{ template "type" .Type }} {{ .Name }};
+{{- end -}}

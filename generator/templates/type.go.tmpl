@@ -1,0 +1,7 @@
+{{- define "type" -}}
+{{- $base := .Base -}}
+{{- range $mod := reverseMods .Modifiers -}}
+    {{- if $mod.Pointer}}*{{ end -}}
+    {{- if $mod.Array}}[{{ renderSize $mod.Array.Size }}]{{ end -}}
+{{- end -}} {{ $base }}
+{{- end -}}

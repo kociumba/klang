@@ -19,9 +19,30 @@
 {{- end}}
 
 {{- define "unary" -}}
-{{- if .Op}}{{.Op}}{{template "unary" .Unary}}{{else}}{{template "primary" .Primary}}{{- end -}}
-{{- end}}
+  {{- if .Op}}
+    {{- if eq .Op "&"}}&{{else if eq .Op "*"}}*{{else}}{{.Op}}{{end}}
+    {{template "unary" .Unary}}
+  {{- else}}
+    {{template "primary" .Primary}}
+  {{- end -}}
+{{- end -}}
 
 {{- define "primary" -}}
-{{- if .Number}}{{.Number}}{{else if .String}}{{.String}}{{else if .Bool}}{{if .Bool}}true{{else}}false{{end}}{{else if .Nil}}NULL{{else if .FuncCall}}{{template "func_call" .FuncCall}}{{else if .Ident}}{{.Ident}}{{else if .SubExpression}}({{template "expression" .SubExpression}}){{- end -}}
-{{- end}}
+  {{template "primary_base" .Base}}{{range .Postfixes}}{{template "postfix" .}}{{end}}
+{{- end -}}
+
+{{- define "primary_base" -}}
+  {{- if .Number}}{{.Number}}
+  {{- else if .String}}{{.String}}
+  {{- else if .Bool}}{{if .Bool}}true{{else}}false{{end}}
+  {{- else if .Nil}}NULL
+  {{- else if .FuncCall}}{{template "func_call" .FuncCall}}
+  {{- else if .Ident}}{{.Ident}}
+  {{- else if .SubExpression}}({{template "expression" .SubExpression}})
+  {{- else if .ArrayLiteral}}{{template "array_literal" .ArrayLiteral}}
+  {{- end -}}
+{{- end -}}
+
+{{- define "postfix" -}}
+  {{- if .IndexAccess}}[{{template "expression" .IndexAccess.Index}}]{{end -}}
+{{- end -}}

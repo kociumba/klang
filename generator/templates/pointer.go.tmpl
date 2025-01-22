@@ -1,0 +1,6 @@
+
+
+{{- define "dereference" -}}
+{{- repeat (len .Modifiers) "*" -}}
+{{template "primary" .Base}}
+{{- end -}}
