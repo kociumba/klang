@@ -116,7 +116,7 @@ func main() {
 	}
 
 	binary := strings.TrimSuffix(input.Name(), ".k") + suffix
-	cmd := exec.Command("zig", "cc", "-gline-tables-only", intermediary, "-o", binary, "-O3")
+	cmd := exec.Command("zig", "cc", intermediary, "-o", binary, "-O3")
 	if printCCOut {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

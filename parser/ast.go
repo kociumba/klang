@@ -102,7 +102,7 @@ type Equality struct {
 
 type Comparison struct {
 	Addition *Addition   `@@`
-	Op       string      `( @( ">" | ">" "=" | "<" | "<" "=" )`
+	Op       string      `( @( ">" | ">=" | "<" | "<=" )`
 	Next     *Comparison `  @@ )*`
 }
 
