@@ -1,8 +1,9 @@
-{{- define "if_statement"}}
+{{- define "if_statement" -}}
 if ({{template "expression" .Condition}}) {
-    {{template "block" .Body}}
-}
-{{- if .Else}} else {
-    {{template "else_branch" .Else}}
-}{{- end}}
+{{template "block" .Body}}}{{if .Else}}{{template "else_branch" .Else}}{{end}}
+{{- end}}
+
+{{- define "else_branch" -}}
+{{if .ElseIf}} else {{template "if_statement" .ElseIf}}{{else}} else {
+{{template "block" .Else}}}{{end}}
 {{- end}}

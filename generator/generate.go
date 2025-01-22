@@ -33,16 +33,16 @@ func (cg *CodeGen) Generate(root *parser.Root) string {
 	}
 
 	// headers
-	if err := tm.GenerateToBuffer("headers.go.tmpl", nil, "headers"); err != nil {
+	if err := tm.GenerateToBuffer("headers", nil, "headers"); err != nil {
 		log.Warn(err)
 	}
 
 	// typedefs
 	//
 	// TODO: move this to nodes when i add parsing for it
-	if err := tm.GenerateToBuffer("typedefs.go.tmpl", nil, "typedefs"); err != nil {
-		log.Warn(err)
-	}
+	// if err := tm.GenerateToBuffer("typedefs.go.tmpl", nil, "typedefs"); err != nil {
+	// 	log.Warn(err)
+	// }
 
 	// parse anything extracted from the ast
 	for _, node := range root.Nodes {

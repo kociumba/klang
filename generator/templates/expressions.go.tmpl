@@ -1,27 +1,27 @@
 {{- define "expression" -}}
-{{if .Equality}}{{template "equality" .Equality}}{{end}}
+{{- if .Equality}}{{template "equality" .Equality}}{{- end -}}
 {{- end}}
 
 {{- define "equality" -}}
-{{template "comparison" .Comparison}}{{if .Op}} {{.Op}} {{template "equality" .Next}}{{end}}
+{{- template "comparison" .Comparison}}{{if .Op}}{{if eq .Op "=="}} == {{else}} != {{end}}{{template "equality" .Next}}{{- end -}}
 {{- end}}
 
 {{- define "comparison" -}}
-{{template "addition" .Addition}}{{if .Op}} {{.Op}} {{template "comparison" .Next}}{{end}}
+{{- template "addition" .Addition}}{{if .Op}} {{.Op}} {{template "comparison" .Next}}{{- end -}}
 {{- end}}
 
 {{- define "addition" -}}
-{{template "multiplication" .Multiplication}}{{if .Op}} {{.Op}} {{template "addition" .Next}}{{end}}
+{{- template "multiplication" .Multiplication}}{{if .Op}} {{.Op}} {{template "addition" .Next}}{{- end -}}
 {{- end}}
 
 {{- define "multiplication" -}}
-{{template "unary" .Unary}}{{if .Op}} {{.Op}} {{template "multiplication" .Next}}{{end}}
+{{- template "unary" .Unary}}{{if .Op}} {{.Op}} {{template "multiplication" .Next}}{{- end -}}
 {{- end}}
 
 {{- define "unary" -}}
-{{if .Op}}{{.Op}} {{template "unary" .Unary}}{{else}}{{template "primary" .Primary}}{{end}}
+{{- if .Op}}{{.Op}}{{template "unary" .Unary}}{{else}}{{template "primary" .Primary}}{{- end -}}
 {{- end}}
 
 {{- define "primary" -}}
-{{if .Number}}{{.Number}}{{else if .String}}"{{.String}}"{{else if .Bool}}{{.Bool}}{{else if .Nil}}nil{{else if .FuncCall}}{{template "func_call" .FuncCall}}{{else if .Ident}}{{.Ident}}{{else if .SubExpression}}({{template "expression" .SubExpression}}){{end}}
+{{- if .Number}}{{.Number}}{{else if .String}}{{.String}}{{else if .Bool}}{{if .Bool}}true{{else}}false{{end}}{{else if .Nil}}NULL{{else if .FuncCall}}{{template "func_call" .FuncCall}}{{else if .Ident}}{{.Ident}}{{else if .SubExpression}}({{template "expression" .SubExpression}}){{- end -}}
 {{- end}}

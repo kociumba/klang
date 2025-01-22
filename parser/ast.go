@@ -96,7 +96,7 @@ type Expression struct {
 
 type Equality struct {
 	Comparison *Comparison `@@`
-	Op         string      `( @( "!" "=" | "=" "=" )`
+	Op         string      `( @( "!" "=" | "=" "=" | "<" "=" | ">" "=" )`
 	Next       *Equality   `  @@ )*`
 }
 
@@ -114,7 +114,7 @@ type Addition struct {
 
 type Multiplication struct {
 	Unary *Unary          `@@`
-	Op    string          `( @( "/" | "*" )`
+	Op    string          `( @( "/" | "*" | "%" )`
 	Next  *Multiplication `  @@ )*`
 }
 

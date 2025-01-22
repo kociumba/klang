@@ -35,6 +35,8 @@ func main() {
 	cli.BoolFlag("ccout", "print the output of the underlaying zig cc compiler", &printCCOut)
 	src := "no path provided"
 	cli.StringFlag("src", "main source file to compile", &src)
+	leaveIntermediary := false
+	cli.BoolFlag("leave", "leave the intermediary c file after compilation", &leaveIntermediary)
 
 	build := cli.NewSubCommandInheritFlags("build", "build a klang source file to an executable")
 	build.Action(func() error {
@@ -52,6 +54,9 @@ func main() {
 	}
 
 	spin := spinner.New("Finding source files")
+	spin.SetSpinSpeed(100)
+	spin.SetSpinFrames(strings.Split("▁▃▄▅▆▇█▇▆▅▄▃", ""))
+	// spin.SetSpinFrames([]string{"▉", "▊", "▋", "▌", "▍", "▎", "▏", "▎", "▍", "▌", "▋", "▊"})
 	spin.Start()
 
 	if src == "no path provided" {
@@ -96,6 +101,9 @@ func main() {
 	intermediary := strings.TrimSuffix(input.Name(), ".k") + ".c"
 
 	os.WriteFile(intermediary, []byte(cgen), 0644)
+	if !leaveIntermediary {
+		defer os.Remove(intermediary)
+	}
 
 	spin.UpdateMessage("Compiling C intermediary")
 
@@ -108,7 +116,7 @@ func main() {
 	}
 
 	binary := strings.TrimSuffix(input.Name(), ".k") + suffix
-	cmd := exec.Command("zig", "cc", intermediary, "-o", binary, "-O3")
+	cmd := exec.Command("zig", "cc", "-gline-tables-only", intermediary, "-o", binary, "-O3")
 	if printCCOut {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -119,10 +127,22 @@ func main() {
 		os.Exit(0)
 	}
 
+	if action.Run {
+		defer os.Remove(binary)
+		if runtime.GOOS == "windows" {
+			pdb := strings.TrimSuffix(binary, ".exe") + ".pdb"
+			defer os.Remove(pdb)
+		}
+	}
+
 	spin.Success("Compilation successful!")
 
 	if action.Run {
-		exec.Command(binary).Start()
+		b := exec.Command(binary)
+		b.Stdout = os.Stdout
+		b.Stderr = os.Stderr
+		// b.Start()
+		b.Run()
 	}
 }
 

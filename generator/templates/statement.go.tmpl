@@ -1,10 +1,10 @@
 {{- define "statement" -}}
-{{- if .VarDecl}}{{template "var_decl" .VarDecl}};
-{{- else if .Assignment}}{{template "assignment" .Assignment}}
-{{- else if .Return}}return {{template "expression" .Return.Value}};
-{{- else if .ForLoop}}{{template "for_loop" .ForLoop}}
-{{- else if .IfStmt}}{{template "if_statement" .IfStmt}}
-{{- else if .FuncCall}}{{template "func_call" .FuncCall}}
-{{- else if .Expr}}{{template "expression" .Expr}};
-{{- end}}
+{{ if .VarDecl}}    {{template "var_decl" .VarDecl}}
+{{ else if .Assignment}}    {{template "assignment" .Assignment}}
+{{ else if .Return}}    return {{template "expression" .Return.Value}};
+{{ else if .ForLoop}}    {{template "for_loop" .ForLoop}}
+{{ else if .IfStmt}}    {{template "if_statement" .IfStmt}}
+{{ else if .FuncCall}}    {{template "func_call" .FuncCall}};
+{{ else if .Expr}}    {{template "expression" .Expr}};
+{{ end}}
 {{- end}}
