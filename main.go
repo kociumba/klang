@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -22,9 +23,21 @@ type Actions struct {
 }
 
 var (
-	mainSRC string
-	action  Actions
+	mainSRC  string
+	action   Actions
+	optLevel string = "speed"
 )
+
+var optimizationFlags = map[string][]string{
+	"none":     {"-O0"},
+	"basic":    {"-O1"},
+	"balanced": {"-O2"},
+	"speed":    {"-O3", "-flto"},
+	"size":     {"-Os"},
+	"smaller":  {"-Oz"},
+	"fast":     {"-Ofast", "-flto"},
+	"native":   {"-O3", "-march=native", "-mtune=native"},
+}
 
 func main() {
 	cli := clir.NewCli("klang", "compiler for the klang language", "v0.0.1")
@@ -37,6 +50,17 @@ func main() {
 	cli.StringFlag("src", "main source file to compile", &src)
 	leaveIntermediary := false
 	cli.BoolFlag("leave", "leave the intermediary c file after compilation", &leaveIntermediary)
+	cli.StringFlag("opt", `Optimization level:
+	none    - No optimizations (good for debugging)
+	basic   - Basic optimizations
+	balanced- Good tradeoff between speed/size
+	speed   - Aggressive optimizations (-O3 with LTO)
+	size    - Optimize for binary size
+	smaller - Extreme size optimizations
+	fast    - Unsafe optimizations - fast math
+	native  - CPU-specific optimizations`, &optLevel)
+	compress := false
+	cli.BoolFlag("upx", "compress the binary with upx, if it's installed and available", &compress)
 
 	build := cli.NewSubCommandInheritFlags("build", "build a klang source file to an executable")
 	build.Action(func() error {
@@ -49,22 +73,40 @@ func main() {
 		return nil
 	})
 
-	if err := cli.Run(); err != nil {
-		log.Fatal(err)
-	}
-
 	spin := spinner.New("Finding source files")
 	spin.SetSpinSpeed(100)
 	spin.SetSpinFrames(strings.Split("▁▃▄▅▆▇█▇▆▅▄▃", ""))
 	// spin.SetSpinFrames([]string{"▉", "▊", "▋", "▌", "▍", "▎", "▏", "▎", "▍", "▌", "▋", "▊"})
 	spin.Start()
 
+	if err := cli.Run(); err != nil {
+		spin.Error(err.Error())
+		os.Exit(0)
+	}
+
 	if src == "no path provided" {
 		spin.Error("No source file provided\n\nHINT: Use the -src flag")
 		os.Exit(0)
 	}
-
 	validatePath(src)
+
+	allowedOptLevels := map[string]bool{
+		"none": true, "basic": true, "balanced": true,
+		"speed": true, "size": true, "smaller": true,
+		"fast": true, "native": true,
+	}
+	if !allowedOptLevels[optLevel] {
+		spin.Error(fmt.Sprintf("Invalid optimization level '%s'.\n\nHINT: Valid options: none, basic, balanced, speed, size, smaller, fast, native", optLevel))
+		os.Exit(0)
+	}
+
+	if compress {
+		_, err := exec.LookPath("upx")
+		if err != nil {
+			log.Warn("upx not found in PATH. The output will not be compressed.")
+			compress = false
+		}
+	}
 
 	// fmt.Printf("Main klang source file found at: %s", mainSRC)
 
@@ -116,7 +158,9 @@ func main() {
 	}
 
 	binary := strings.TrimSuffix(input.Name(), ".k") + suffix
-	cmd := exec.Command("zig", "cc", intermediary, "-o", binary, "-O3")
+	flags := []string{"cc", intermediary, "-o", binary}
+	flags = append(flags, optimizationFlags[optLevel]...)
+	cmd := exec.Command("zig", flags...)
 	if printCCOut {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -125,6 +169,19 @@ func main() {
 		spin.Error("Compilation error: " + err.Error())
 		// log.Errorf("Compilation error: %s", err)
 		os.Exit(0)
+	}
+
+	spin.UpdateMessage("Compressing binary with upx")
+
+	if compress {
+		upx := exec.Command("upx", binary)
+		if printCCOut {
+			upx.Stdout = os.Stdout
+			upx.Stderr = os.Stderr
+		}
+		if err := upx.Run(); err != nil {
+			spin.Error("Failed to compress binary: " + err.Error())
+		}
 	}
 
 	if action.Run {

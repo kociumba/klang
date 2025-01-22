@@ -6,6 +6,15 @@ type Root struct {
 
 type Node interface{ node() }
 
+type Typedecl struct {
+	Keyword  string       `@"type"`
+	Name     string       `@Ident`
+	IsStruct *StructBlock `(":" "struct" @@)?`
+	Type     string       `(":" @Ident)?`
+}
+
+func (Typedecl) node() {}
+
 type VarDecl struct {
 	Keyword    string      `@"var"`
 	Name       string      `@Ident`
@@ -45,6 +54,15 @@ type Arg struct {
 type FuncCall struct {
 	Name string        `@Ident`
 	Args []*Expression `"(" ( @@ ( "," @@ )* )? ")"`
+}
+
+type StructBlock struct {
+	Fields []*Field `"{" @@* "}"`
+}
+
+type Field struct {
+	Name string `@Ident`
+	Type string `":" @Ident ","`
 }
 
 type Block struct {

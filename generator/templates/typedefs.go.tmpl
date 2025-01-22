@@ -1,1 +1,13 @@
-typedef char* string;
+{{- define "type" -}}
+    {{- if .IsStruct -}}
+        typedef struct {{template "struct_block" .IsStruct}} {{.Name}};
+    {{- else if .Type -}}
+        typedef {{.Type}} {{.Name}};
+    {{- end -}}
+{{- end -}}
+
+{{define "field"}}{{.Type}} {{.Name}};{{end}}
+
+{{define "struct_block"}}{
+    {{range .Fields}}{{template "field" .}}
+{{end}}}{{end}}

@@ -25,6 +25,7 @@ func Parse(input string, fileName string) *Root {
 		{Name: "Fun", Pattern: `fun`},
 		{Name: "Var", Pattern: `var`},
 		{Name: "Define", Pattern: `define`},
+		{Name: "Type", Pattern: `type`},
 		{Name: "AssignOp", Pattern: `\+=|-=|\*=|/=|%=|&=|\|=|\^=|<<=|>>=|=`},
 		{Name: "IncDec", Pattern: `\+\+|--`},
 		{Name: "ShiftOp", Pattern: `<<|>>`},
@@ -42,7 +43,7 @@ func Parse(input string, fileName string) *Root {
 		participle.Lexer(lex),
 		participle.Elide("Comment", "Whitespace", "Replace"),
 		participle.UseLookahead(1024),
-		participle.Union[Node](VarDecl{}, Definedecl{}, FunctionDef{}),
+		participle.Union[Node](Typedecl{}, VarDecl{}, Definedecl{}, FunctionDef{}),
 	)
 
 	program, err := parser.ParseString(fileName, input)
