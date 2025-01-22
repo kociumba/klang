@@ -56,6 +56,7 @@ type Statement struct {
 	Assignment *Assignment  `| @@`
 	Return     *ReturnStmt  `| "return" @@`
 	ForLoop    *ForLoop     `| "for" @@`
+	WhileLoop  *WhileLoop   `| "while" @@`
 	IfStmt     *IfStatement `| "if" @@`
 	FuncCall   *FuncCall    `| @@`
 	Expr       *Expression  `| @@`
@@ -77,6 +78,11 @@ type ForLoop struct {
 	Start    *Expression `"range" "(" @@ ","`
 	End      *Expression `@@ ")"`
 	Body     *Block      `@@`
+}
+
+type WhileLoop struct {
+	Condition *Expression `@@`
+	Body      *Block      `@@`
 }
 
 type IfStatement struct {

@@ -3,6 +3,7 @@
 {{ else if .Assignment}}    {{template "assignment" .Assignment}}
 {{ else if .Return}}    return {{template "expression" .Return.Value}};
 {{ else if .ForLoop}}    {{template "for_loop" .ForLoop}}
+{{ else if .WhileLoop}}    {{template "while_loop" .WhileLoop}}
 {{ else if .IfStmt}}    {{template "if_statement" .IfStmt}}
 {{ else if .FuncCall}}    {{template "func_call" .FuncCall}};
 {{ else if .Expr}}    {{template "expression" .Expr}};
